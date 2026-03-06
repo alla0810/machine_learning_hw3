@@ -1,3 +1,6 @@
+"""CS446 kyosook2@illinois.edu
+"""
+
 import hw3_utils
 import numpy as np
 import torch
