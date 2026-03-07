@@ -57,13 +57,11 @@ def svm_solver(x_train, y_train, lr, num_iters,
         with torch.no_grad():
             alpha -= lr * alpha.grad
 
+        # box constraint
             if c is None:
                 alpha.clamp_(min=0)
             else:
-                alpha.clamp_(min=0, max=c)
-
-            y_alpha = torch.dot(alpha, y_train)
-            alpha -= y_alpha / torch.dot(y_train, y_train) * y_train
+                alpha.clamp_(0, c)
 
         alpha.grad.zero_()
 
@@ -93,20 +91,19 @@ def svm_predictor(alpha, x_train, y_train, x_test,
     support_indices = torch.where(alpha > 1e-6)[0]
     support_alphas = alpha[support_indices]
 
-    min_index = support_indices[torch.argmin(support_alphas)]
-    x_sv = x_train[min_index]
+    min_idx = torch.argmin(support_alphas)
+    sv = support_indices[min_idx]
 
-    sum_term = 0
-    for j in range(N):
-        sum_term += alpha[j] * y_train[j] * kernel(x_train[j], x_sv)
-
-    b = y_train[min_index] - sum_term
+    sum_term = torch.sum(alpha * y_train *
+                         torch.stack([kernel(x_train[j], x_train[sv]) for j in range(N)]))
+    
+    b = y_train[sv] - sum_term
 
     preds = torch.zeros(M)
+
     for i in range(M):
-        val = 0
-        for j in range(N):
-            val += alpha[j] * y_train[j] * kernel(x_train[j], x_test[i])
+        val = torch.sum(alpha * y_train *
+                        torch.stack([kernel(x_train[j], x_test[i]) for j in range(N)]))
         preds[i] = val + b
 
     return preds
